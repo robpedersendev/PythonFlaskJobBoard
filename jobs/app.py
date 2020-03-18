@@ -1,5 +1,6 @@
-from flask import Flask, g, render_template
+from flask import Flask, g, render_template, request, redirect, url_for
 import sqlite3
+import datetime
 
 PATH = 'db/jobs.sqlite'
 
@@ -47,21 +48,30 @@ def employer(employer_id):
     return render_template('employer.html', employer=employer, jobs=jobs, reviews=reviews)
 
 
-@app.route('/employer/<employer_id>/review')
-def review(employer_id, methods=('GET', 'POST')):
-    return render_template('review.html', employer_id = employer_id)
+@app.route('/employer/<employer_id>/review', methods=('GET', 'POST'))
+def review(employer_id):
+    if request.method == 'POST':
+        review = request.form['review']
+        rating = request.form['rating']
+        title = request.form['title']
+        status = request.form['status']
+
+        date = datetime.datetime.now().strftime("%m/%d/%Y")
+        execute_sql('INSERT INTO review (review, rating, title, date, status, employer_id) VALUES (?, ?, ?, ?, ?, ?)', (review, rating, title, date, status, employer_id), commit=True)
+
+        return redirect(url_for('employer', employer_id=employer_id))
+
+    return render_template('review.html', employer_id=employer_id)
 
 
 @app.route('/job/<job_id>')
 def job(job_id):
-    job = execute_sql(
-        'SELECT job.id, job.title, job.description, job.salary, employer.id as employer_id, employer.name as employer_name FROM job JOIN employer ON employer.id = job.employer_id WHERE job.id = ?', [job_id], single=True)
+    job = execute_sql('SELECT job.id, job.title, job.description, job.salary, employer.id as employer_id, employer.name as employer_name FROM job JOIN employer ON employer.id = job.employer_id WHERE job.id = ?', [job_id], single=True)
     return render_template('job.html', job=job)
 
 
 @app.route('/')
 @app.route('/jobs')
 def jobs():
-    jobs = execute_sql(
-        'SELECT job.id, job.title, job.description, job.salary, employer.id as employer_id, employer.name as employer_name FROM job JOIN employer ON employer.id = job.employer_id')
+    jobs = execute_sql('SELECT job.id, job.title, job.description, job.salary, employer.id as employer_id, employer.name as employer_name FROM job JOIN employer ON employer.id = job.employer_id')
     return render_template('index.html', jobs=jobs)
